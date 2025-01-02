@@ -27,6 +27,7 @@
 #define SQRT_NAN  0x7fc00004
 #define DIV_NAN   0x7fc00008
 #define MUL_NAN   0x7fc00002
+#define QUIET_NAN_64 0x7FF8000000000000
 #define FPU_FS PSW_USB_BIT31
 #define FPU_FI PSW_USB_BIT30
 #define FPU_FV PSW_USB_BIT29
@@ -175,6 +176,245 @@ uint32_t helper_fmul(CPUTriCoreState *env, uint32_t r1, uint32_t r2)
     }
     return (uint32_t)f_result;
 
+}
+
+uint64_t helper_dfadd(CPUTriCoreState *env, uint64_t r1, uint64_t r2)         
+{                                                                              
+
+    uint32_t flags;
+	float64 arg1 = make_float64(r1);                                           
+    float64 arg2 = make_float64(r2);                                           
+    float64 f_result;
+
+	if(float64_is_any_nan(arg1) && float64_is_any_nan(arg2)){
+		f_result = QUIET_NAN_64;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}
+
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+	f_result = float64_add(arg1, arg2, &env->fp_status);
+
+	flags = f_get_excp_flags(env);
+    
+    f_update_psw_flags(env, flags);
+                                                                               
+    return (uint64_t)f_result;                                                 
+}
+
+uint64_t helper_dfsub(CPUTriCoreState *env, uint64_t r1, uint64_t r2)         
+{                                                                              
+	uint32_t flags;                                                           
+    float64 arg1 = make_float64(r1);                                           
+    float64 arg2 = make_float64(r2);                                           
+    float64 f_result;
+
+	if(float64_is_any_nan(arg1) && float64_is_any_nan(arg2)){
+		f_result = QUIET_NAN_64;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                                          
+	
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+
+	f_result = float64_sub(arg2, arg1, &env->fp_status);
+
+	flags = f_get_excp_flags(env);
+    
+    f_update_psw_flags(env, flags);
+                                                                     
+                                                                              
+    return (uint64_t)f_result;                                                 
+}
+
+uint64_t helper_dfdiv(CPUTriCoreState *env, uint64_t r1, uint64_t r2)         
+{                                                                                                                                        
+    uint32_t flags;
+	float64 arg1 = make_float64(r1);                                           
+    float64 arg2 = make_float64(r2);                                           
+    float64 f_result;
+
+	if(float64_is_any_nan(arg1) && float64_is_any_nan(arg2)){
+		f_result = QUIET_NAN_64;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                                         
+	
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+
+	f_result = float64_div(arg1, arg2, &env->fp_status);
+	flags = f_get_excp_flags(env);
+    
+    f_update_psw_flags(env, flags);
+	                                                                          
+    return (uint64_t)f_result;                                                 
+}
+
+uint64_t helper_dfmul(CPUTriCoreState *env, uint64_t r1, uint64_t r2)         
+{                                                                                                                                      
+    uint32_t flags;
+	float64 arg1 = make_float64(r1);                                           
+    float64 arg2 = make_float64(r2);                                           
+    float64 f_result;
+
+	if(float64_is_any_nan(arg1) && float64_is_any_nan(arg2)){
+		f_result = QUIET_NAN_64;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                                        
+	
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+	f_result = float64_mul(arg1, arg2, &env->fp_status);
+	flags = f_get_excp_flags(env);
+    
+    f_update_psw_flags(env, flags);
+	                                                                          
+                                                                              
+    return (uint64_t)f_result;                                                 
+}
+
+uint32_t helper_fmin(CPUTriCoreState *env, uint32_t r1, uint32_t r2)         
+{                                                                                                                                    
+    uint32_t flags;
+	float32 arg1 = make_float32(r1);                                           
+    float32 arg2 = make_float32(r2);                                           
+    float32 f_result; 
+
+	if(float32_is_any_nan(arg1) && float32_is_any_nan(arg2)){
+		f_result = QUIET_NAN;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                                       
+	
+	if((r1 == 0x80000000) && (r2 == 0U)){ //-0<0
+		f_result = arg1;
+	}else{
+		set_flush_inputs_to_zero(0, &env->fp_status);
+		set_flush_to_zero(0,  &env->fp_status);
+		FloatRelation cmpResult = float32_compare_quiet(arg1, arg2, &env->fp_status);
+		if(cmpResult == float_relation_less){
+			f_result = arg1;
+		}else{
+			f_result = arg2;
+		}
+		flags = f_get_excp_flags(env);
+    
+    	f_update_psw_flags(env, flags);
+	}
+	                                                                                    
+    return (uint32_t)f_result;                                                 
+}
+
+uint32_t helper_fmax(CPUTriCoreState *env, uint32_t r1, uint32_t r2)         
+{                                                                                                                                    
+    uint32_t flags;
+	float32 arg1 = make_float32(r1);                                           
+    float32 arg2 = make_float32(r2);                                           
+    float32 f_result; 
+
+	if(float32_is_any_nan(arg1) && float32_is_any_nan(arg2)){
+		f_result = QUIET_NAN;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                                       
+	
+	if((r2 == 0x80000000) && (r1 == 0U)){ //-0<0
+		f_result = arg1;
+	}else{
+		set_flush_inputs_to_zero(0, &env->fp_status);
+		set_flush_to_zero(0,  &env->fp_status);
+		FloatRelation cmpResult = float32_compare_quiet(arg1, arg2, &env->fp_status);
+		if(cmpResult == float_relation_greater){
+			f_result = arg1;
+		}else{
+			f_result = arg2;
+		}
+		flags = f_get_excp_flags(env);
+    
+    	f_update_psw_flags(env, flags);
+	}
+	                                                                                    
+    return (uint32_t)f_result;                                                 
+}
+
+uint64_t helper_dfmin(CPUTriCoreState *env, uint64_t r1, uint64_t r2)         
+{                                                                                                                                    
+    float64 arg1 = make_float64(r1);                                           
+    float64 arg2 = make_float64(r2);                                           
+    float64 f_result; 
+
+	if(float64_is_any_nan(arg1) && float64_is_any_nan(arg2)){
+		f_result = QUIET_NAN_64;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                                       
+	
+	if((r1 == 0x8000000000000000) && (r2 == 0U)){ //-0<0
+		f_result = arg1;
+	}else{
+		set_flush_inputs_to_zero(0, &env->fp_status);
+		set_flush_to_zero(0,  &env->fp_status);
+		FloatRelation cmpResult = float64_compare_quiet(arg1, arg2, &env->fp_status);
+		if(cmpResult == float_relation_less){
+			f_result = arg1;
+		}else{
+			f_result = arg2;
+		}
+	}
+	                                                                                    
+    return (uint64_t)f_result;                                                 
+}
+
+uint64_t helper_dfmax(CPUTriCoreState *env, uint64_t r1, uint64_t r2)         
+{                                                                              
+    float64 arg1 = make_float64(r1);                                           
+    float64 arg2 = make_float64(r2);                                           
+    float64 f_result;
+
+	if(float64_is_any_nan(arg1) && float64_is_any_nan(arg2)){
+		f_result = QUIET_NAN_64;
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+		return f_result;
+	}                                     
+	
+	if((r2 == 0x8000000000000000) && (r1 == 0U)){ //0>-0
+		f_result = arg1;
+	}else{
+		set_flush_inputs_to_zero(0, &env->fp_status);
+		set_flush_to_zero(0,  &env->fp_status);
+		FloatRelation cmpResult = float64_compare_quiet(arg1, arg2, &env->fp_status);
+		if(cmpResult == float_relation_greater){
+			f_result = arg1;
+		}else{
+			f_result = arg2;
+		}
+	}
+	                                                                                                                                               
+    return (uint64_t)f_result;                                                 
 }
 
 /*
@@ -347,6 +587,7 @@ uint32_t helper_fcmp(CPUTriCoreState *env, uint32_t r1, uint32_t r2)
     set_flush_inputs_to_zero(0, &env->fp_status);
 
     result = 1 << (float32_compare_quiet(arg1, arg2, &env->fp_status) + 1);
+	result |= (float32_is_any_nan(arg1) || float32_is_any_nan(arg2)) << 3;
     result |= float32_is_denormal(arg1) << 4;
     result |= float32_is_denormal(arg2) << 5;
 
@@ -358,6 +599,35 @@ uint32_t helper_fcmp(CPUTriCoreState *env, uint32_t r1, uint32_t r2)
     }
 
     set_flush_inputs_to_zero(1, &env->fp_status);
+    return result;
+}
+
+uint32_t helper_dfcmp(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
+{
+	uint32_t result, flags;
+    float64 arg1 = make_float64(r1);
+    float64 arg2 = make_float64(r2);
+
+	if ((float64_is_any_nan(arg1) || float64_is_any_nan(arg2))){
+		result = 1 << 3;
+		env->fp_status.float_exception_flags |= float_flag_invalid;
+        env->FPU_FS = 1;
+		env->FPU_FI = 1;
+	} else { 
+		if (float64_is_zero(arg1) && float64_is_zero(arg2)){ //in cmp instruction 0==-0
+		 	result = 2;
+		}else{
+			set_flush_inputs_to_zero(0, &env->fp_status);
+			set_flush_to_zero(0,  &env->fp_status);
+			result = 1 << (float64_compare_quiet(arg1, arg2, &env->fp_status) + 1);
+			flags = f_get_excp_flags(env);
+			f_update_psw_flags(env, flags);
+		}
+	}
+	
+    result |= float64_is_denormal(arg1) << 4;
+    result |= float64_is_denormal(arg2) << 5;
+    
     return result;
 }
 
@@ -395,6 +665,36 @@ uint32_t helper_itof(CPUTriCoreState *env, uint32_t arg)
     return (uint32_t)f_result;
 }
 
+uint64_t helper_itodf(CPUTriCoreState *env, uint32_t arg)
+{
+    float64 f_result;
+    uint32_t flags;
+    f_result = int32_to_float64(arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return (uint64_t)f_result;
+}
+
+uint64_t helper_ltodf(CPUTriCoreState *env, uint64_t arg)
+{
+    float64 f_result;
+    uint32_t flags;
+    f_result = int64_to_float64(arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return (uint64_t)f_result;
+}
+
 uint32_t helper_utof(CPUTriCoreState *env, uint32_t arg)
 {
     float32 f_result;
@@ -409,6 +709,36 @@ uint32_t helper_utof(CPUTriCoreState *env, uint32_t arg)
         env->FPU_FS = 0;
     }
     return (uint32_t)f_result;
+}
+
+uint64_t helper_utodf(CPUTriCoreState *env, uint32_t arg)
+{
+    float64 f_result;
+    uint32_t flags;
+    f_result = uint32_to_float64(arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return (uint64_t)f_result;
+}
+
+uint64_t helper_ultodf(CPUTriCoreState *env, uint64_t arg)
+{
+    float64 f_result;
+    uint32_t flags;
+    f_result = uint64_to_float64(arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return (uint64_t)f_result;
 }
 
 uint32_t helper_ftoiz(CPUTriCoreState *env, uint32_t arg)
@@ -436,6 +766,118 @@ uint32_t helper_ftoiz(CPUTriCoreState *env, uint32_t arg)
     return result;
 }
 
+uint32_t helper_dftoiz(CPUTriCoreState *env, uint64_t arg)
+{
+    uint32_t flags;
+	float64 f_arg = make_float64(arg);
+    int32_t result;
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+    result = float64_to_int32_round_to_zero(f_arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        if (float64_is_any_nan(f_arg)) {
+            result = 0;
+        }
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return (uint32_t)result;
+}
+
+uint64_t helper_dftolz(CPUTriCoreState *env, uint64_t arg)
+{
+    uint32_t flags;
+	float64 f_arg = make_float64(arg);
+    int64_t result;
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+    result = float64_to_int64_round_to_zero(f_arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        if (float64_is_any_nan(f_arg)) {
+            result = 0;
+        }
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return (uint64_t)result;
+}
+
+uint32_t helper_dftof(CPUTriCoreState *env, uint64_t arg)
+{
+    uint32_t flags;
+	float64 f_arg = make_float64(arg);
+    float32 result;
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+		if (float64_is_any_nan(f_arg)){
+			// Set the sign bit
+		result = (f_arg >> 32) & 0x80000000;
+
+		// Set the exponent bits to FFH
+		result |= 0x7F800000;
+
+		// Set the mantissa bits
+		result |= ((f_arg >> 29) & 0x00600000); // E[a][51:50] to result[22:21]
+		result |= (f_arg & 0x000FFFFF);         // E[a][20:0] to result[20:0]
+
+		// Check if the mantissa bits are all zero
+		if ((result & 0x007FFFFF) == 0) {
+			result |= 0x00200000; // Set result[21] to 1B
+		}
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+	}else{
+		result = float64_to_float32(f_arg, &env->fp_status);
+
+    	flags = f_get_excp_flags(env);
+    
+        f_update_psw_flags(env, flags);
+	}
+
+    
+    return (uint32_t)result;
+}
+
+uint64_t helper_ftodf(CPUTriCoreState *env, uint32_t arg)
+{
+	uint32_t flags;
+    float32 f_arg = make_float32(arg);
+    float64 result;
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+	if (float32_is_any_nan(f_arg)){
+			// Set the sign bit
+		 // Set the sign bit
+    	result = ((uint64_t)(f_arg >> 31) & 0x1) << 63;
+
+    	// Set the exponent bits to 7FFH
+    	result |= 0x7FF0000000000000;
+
+    	// Set the mantissa bits
+    	result |= ((uint64_t)(f_arg >> 21) & 0x3) << 50; // D[a][22:21] to result[51:50]
+    	result |= (uint64_t)(f_arg & 0x1FFFFF);          // D[a][20:0] to result[20:0]
+		env->FPU_FS = 1;
+		env->FPU_FI = 1;
+	}else{
+		result = float32_to_float64(f_arg, &env->fp_status);
+
+    	flags = f_get_excp_flags(env);
+    
+        f_update_psw_flags(env, flags);
+	}
+
+    
+    return (uint64_t)result;
+}
+
 uint32_t helper_ftouz(CPUTriCoreState *env, uint32_t arg)
 {
     float32 f_arg = make_float32(arg);
@@ -456,6 +898,48 @@ uint32_t helper_ftouz(CPUTriCoreState *env, uint32_t arg)
     }
 
     if (flags) {
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return result;
+}
+
+uint32_t helper_dftouz(CPUTriCoreState *env, uint64_t arg)
+{
+    float64 f_arg = make_float64(arg);
+    uint32_t result, flags;
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+    result = float64_to_uint32_round_to_zero(f_arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        if (float64_is_any_nan(f_arg)) {
+            result = 0;
+        }
+        f_update_psw_flags(env, flags);
+    } else {
+        env->FPU_FS = 0;
+    }
+    return result;
+}
+
+uint64_t helper_dftoulz(CPUTriCoreState *env, uint64_t arg)
+{
+    float64 f_arg = make_float64(arg);
+    uint64_t result, flags;
+	set_flush_inputs_to_zero(0, &env->fp_status);
+	set_flush_to_zero(0,  &env->fp_status);
+
+    result = float64_to_uint64_round_to_zero(f_arg, &env->fp_status);
+
+    flags = f_get_excp_flags(env);
+    if (flags) {
+        if (float64_is_any_nan(f_arg)) {
+            result = 0;
+        }
         f_update_psw_flags(env, flags);
     } else {
         env->FPU_FS = 0;

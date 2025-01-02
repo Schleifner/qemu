@@ -230,6 +230,21 @@ void tricore_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     tcg_temp_free_i64(ret);                                 \
 } while (0)
 
+#define GEN_HELPER_RR64(name, r3, r1, r2) do {                                   \
+    TCGv_i64 ret = tcg_temp_new_i64();                                         \
+    TCGv_i64 er1 = tcg_temp_new_i64();                                         \
+    TCGv_i64 er2 = tcg_temp_new_i64();                                         \
+                                                                               \
+    tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);             \
+    tcg_gen_concat_i32_i64(er2, cpu_gpr_d[r2], cpu_gpr_d[r2 + 1]);             \
+    gen_helper_##name(ret, cpu_env, er1, er2);                                 \
+    tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);               \
+                                                                               \
+    tcg_temp_free_i64(er2);                                                    \
+    tcg_temp_free_i64(er1);                                                    \
+    tcg_temp_free_i64(ret);                                                    \
+} while (0)
+
 #define EA_ABS_FORMAT(con) (((con & 0x3C000) << 14) + (con & 0x3FFF))
 #define EA_ABS_LHA_FORMAT(con) (con << 14)
 #define EA_B_ABSOLUT(con) (((offset & 0xf00000) << 8) | \
@@ -6681,6 +6696,7 @@ static void decode_rr_divide(DisasContext *ctx)
     r3 = MASK_OP_RR_D(ctx->opcode);
     r2 = MASK_OP_RR_S2(ctx->opcode);
     r1 = MASK_OP_RR_S1(ctx->opcode);
+    uint32_t const n = MASK_OP_RR_N(ctx->opcode);
 
     switch (op2) {
     case OPC2_32_RR_BMERGE:
@@ -6821,38 +6837,88 @@ static void decode_rr_divide(DisasContext *ctx)
         break;
     case OPC2_32_RR_DIV:
         if (has_feature(ctx, TRICORE_V1_6_UP)) {
-            GEN_HELPER_RR(divide, cpu_gpr_d[r3], cpu_gpr_d[r3+1], cpu_gpr_d[r1],
+            if(n==1)
+            {
+                GEN_HELPER_RR(divide, cpu_gpr_d[r3], cpu_gpr_d[r3+1], cpu_gpr_d[r1],
                           cpu_gpr_d[r2]);
+            }else{
+                GEN_HELPER_RR64(divide64, r3, r1, r2);
+            }
         } else {
             generate_trap(ctx, TRAPC_INSN_ERR, TIN2_IOPC);
         }
         break;
     case OPC2_32_RR_DIV_U:
         if (has_feature(ctx, TRICORE_V1_6_UP)) {
-            GEN_HELPER_RR(divide_u, cpu_gpr_d[r3], cpu_gpr_d[r3+1],
+            if(n==1)
+            {
+                GEN_HELPER_RR(divide_u, cpu_gpr_d[r3], cpu_gpr_d[r3+1],
                           cpu_gpr_d[r1], cpu_gpr_d[r2]);
+            }else{
+               GEN_HELPER_RR64(divide_u64, r3, r1, r2); 
+            }
         } else {
             generate_trap(ctx, TRAPC_INSN_ERR, TIN2_IOPC);
         }
         break;
     case OPC2_32_RR_MUL_F:
-        gen_helper_fmul(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        if(n == 1)
+        {
+            gen_helper_fmul(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        }else{
+            GEN_HELPER_RR64(dfmul, r3, r1,r2);
+        }
         break;
     case OPC2_32_RR_DIV_F:
-        gen_helper_fdiv(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        if(n==1)
+        {
+            gen_helper_fdiv(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        }else{
+            GEN_HELPER_RR64(dfdiv, r3, r1,r2);
+        }
         break;
     case OPC2_32_RR_CMP_F:
-        gen_helper_fcmp(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        if(n==1)
+        {
+            gen_helper_fcmp(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        }else{
+            
+            TCGv_i64 er1 = tcg_temp_new_i64();                                         
+            TCGv_i64 er2 = tcg_temp_new_i64();                                         
+                                                                               
+            tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);             
+            tcg_gen_concat_i32_i64(er2, cpu_gpr_d[r2], cpu_gpr_d[r2 + 1]);             
+            gen_helper_dfcmp(cpu_gpr_d[r3], cpu_env, er1, er2);                                              
+                                                                               
+            tcg_temp_free_i64(er2);                                                    
+            tcg_temp_free_i64(er1);                                                                                                       
+        }
         break;
     case OPC2_32_RR_FTOI:
         gen_helper_ftoi(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
         break;
     case OPC2_32_RR_ITOF:
-        gen_helper_itof(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+        if(n==1){
+            gen_helper_itof(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+        }else{
+            TCGv_i64 ret = tcg_temp_new_i64();
+            gen_helper_itodf(ret, cpu_env, cpu_gpr_d[r1]);
+            tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);
+            tcg_temp_free_i64(ret);
+        }
+        
         break;
     case OPC2_32_RR_FTOUZ:
         if (has_feature(ctx, TRICORE_V1_3_1_UP)) {
-        	gen_helper_ftouz(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+            if(n==1)
+        	{
+                gen_helper_ftouz(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+            }else{
+                TCGv_i64 er1 = tcg_temp_new_i64(); 
+                tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);
+                gen_helper_dftouz(cpu_gpr_d[r3], cpu_env, er1);
+                tcg_temp_free_i64(er1);
+            }
         } else {
             generate_trap(ctx, TRAPC_INSN_ERR, TIN2_IOPC);
         }
@@ -6861,11 +6927,26 @@ static void decode_rr_divide(DisasContext *ctx)
         gen_helper_updfl(cpu_env, cpu_gpr_d[r1]);
         break;
     case OPC2_32_RR_UTOF:
-        gen_helper_utof(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+        if(n==1){
+            gen_helper_utof(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+        }else{
+            TCGv_i64 ret = tcg_temp_new_i64();
+            gen_helper_utodf(ret, cpu_env, cpu_gpr_d[r1]);
+            tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);
+            tcg_temp_free_i64(ret);
+        }
+        
         break;
     case OPC2_32_RR_FTOIZ:
         if (has_feature(ctx, TRICORE_V1_3_1_UP)) {
-            gen_helper_ftoiz(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+            if(n==1){
+                gen_helper_ftoiz(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1]);
+            }else{
+                TCGv_i64 er1 = tcg_temp_new_i64(); 
+                tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);
+                gen_helper_dftoiz(cpu_gpr_d[r3], cpu_env, er1);
+                tcg_temp_free_i64(er1);
+            }
         } else {
             generate_trap(ctx, TRAPC_INSN_ERR, TIN2_IOPC);
         }
@@ -6908,6 +6989,95 @@ static void decode_rr_divide(DisasContext *ctx)
         }
         break;
         break;
+    case OPC2_32_RR_MIN_F:
+        if(n==1){
+            gen_helper_fmin(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        }else{
+          GEN_HELPER_RR64(dfmin, r3, r1, r2);
+        }
+        break;
+    case OPC2_32_RR_MAX_F:
+        if(n==1){
+            gen_helper_fmax(cpu_gpr_d[r3], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r2]);
+        }else{
+          GEN_HELPER_RR64(dfmax, r3, r1, r2);
+        }
+        break;
+    case OPC2_32_RR_DFTOLZ:{
+        TCGv_i64 ret = tcg_temp_new_i64();                                         
+        TCGv_i64 er1 = tcg_temp_new_i64();              
+
+        tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);             
+    
+        gen_helper_dftolz(ret, cpu_env, er1);                                 
+        tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);
+
+        tcg_temp_free_i64(er1);                                                    
+        tcg_temp_free_i64(ret);                                                    
+        break;
+    }
+    case OPC2_32_RR_DFTOULZ:{
+        TCGv_i64 ret = tcg_temp_new_i64();                                         
+        TCGv_i64 er1 = tcg_temp_new_i64();              
+
+        tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);             
+    
+        gen_helper_dftoulz(ret, cpu_env, er1);                                 
+        tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);
+
+        tcg_temp_free_i64(er1);                                                    
+        tcg_temp_free_i64(ret);                                                    
+        break;
+    }
+    case OPC2_32_RR_DFTOF:{                                        
+        TCGv_i64 er1 = tcg_temp_new_i64();              
+
+        tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);             
+    
+        gen_helper_dftof(cpu_gpr_d[r3], cpu_env, er1);                                 
+
+        tcg_temp_free_i64(er1);                                                                                                       
+        break;
+    }
+    case OPC2_32_RR_FTODF:{                                        
+        TCGv_i64 ret = tcg_temp_new_i64();                         
+    
+        gen_helper_ftodf(ret, cpu_env, cpu_gpr_d[r1]);    
+        tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);                             
+
+        tcg_temp_free_i64(ret);                                                                                                       
+        break;
+    }
+    case OPC2_32_RR_LTODF:{                                        
+        TCGv_i64 ret = tcg_temp_new_i64();     
+        TCGv_i64 er1 = tcg_temp_new_i64();              
+        tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);                    
+    
+        gen_helper_ltodf(ret, cpu_env, er1);
+
+        tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);                             
+        tcg_temp_free_i64(ret);                                                                                                       
+        break;
+    }
+    case OPC2_32_RR_ULTODF:{                                        
+        TCGv_i64 ret = tcg_temp_new_i64();     
+        TCGv_i64 er1 = tcg_temp_new_i64();              
+        tcg_gen_concat_i32_i64(er1, cpu_gpr_d[r1], cpu_gpr_d[r1 + 1]);                    
+    
+        gen_helper_ultodf(ret, cpu_env, er1);
+
+        tcg_gen_extr_i64_i32(cpu_gpr_d[r3], cpu_gpr_d[r3 + 1], ret);                             
+        tcg_temp_free_i64(ret);                                                                                                       
+        break;
+    }
+    case OPC2_32_RR_REM64:{
+        GEN_HELPER_RR64(rem64, r3, r1, r2);
+        break;
+    }
+    case OPC2_32_RR_REM64U:{
+        GEN_HELPER_RR64(rem_u64, r3, r1, r2);
+        break;
+    }
     default:
         generate_trap(ctx, TRAPC_INSN_ERR, TIN2_IOPC);
     }
@@ -7259,6 +7429,7 @@ static void decode_rrr_divide(DisasContext *ctx)
     r2 = MASK_OP_RRR_S2(ctx->opcode);
     r3 = MASK_OP_RRR_S3(ctx->opcode);
     r4 = MASK_OP_RRR_D(ctx->opcode);
+    uint32_t const n = MASK_OP_RR_N(ctx->opcode);
 
     switch (op2) {
     case OPC2_32_RRR_DVADJ:
@@ -7318,10 +7489,21 @@ static void decode_rrr_divide(DisasContext *ctx)
         }
         break;
     case OPC2_32_RRR_ADD_F:
-        gen_helper_fadd(cpu_gpr_d[r4], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r3]);
+        if (n==1)
+        {
+            gen_helper_fadd(cpu_gpr_d[r4], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r3]);
+        }else{
+            GEN_HELPER_RR64(dfadd, r4, r1, r3);
+        }
+
         break;
     case OPC2_32_RRR_SUB_F:
-        gen_helper_fsub(cpu_gpr_d[r4], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r3]);
+        if (n==1)
+        {
+            gen_helper_fsub(cpu_gpr_d[r4], cpu_env, cpu_gpr_d[r1], cpu_gpr_d[r3]);}
+        else{
+            GEN_HELPER_RR64(dfsub, r4, r1, r3);
+        }
         break;
     case OPC2_32_RRR_MADD_F:
         gen_helper_fmadd(cpu_gpr_d[r4], cpu_env, cpu_gpr_d[r1],
@@ -7331,6 +7513,7 @@ static void decode_rrr_divide(DisasContext *ctx)
         gen_helper_fmsub(cpu_gpr_d[r4], cpu_env, cpu_gpr_d[r1],
                          cpu_gpr_d[r2], cpu_gpr_d[r3]);
         break;
+    
     default:
         generate_trap(ctx, TRAPC_INSN_ERR, TIN2_IOPC);
     }

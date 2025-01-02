@@ -1161,6 +1161,16 @@ enum {
     OPC2_32_RR_FTOHP                             = 0x25, /* >=TC162 */
     OPC2_32_RR_HPTOF                             = 0x24, /* >=TC162 */
     OPC2_32_RR_POPCNTW                           = 0x22, /* >=TC162 */
+    OPC2_32_RR_MAX_F                             = 0x32, /* >=TC18 */
+    OPC2_32_RR_MIN_F                             = 0x33, /* >=TC18 */
+    OPC2_32_RR_DFTOLZ                            = 0x1B, /* >=TC18 */
+    OPC2_32_RR_DFTOULZ                           = 0x1F, /* >=TC18 */
+    OPC2_32_RR_DFTOF                             = 0x28, /* >=TC18 */
+    OPC2_32_RR_FTODF                             = 0x29, /* >=TC18 */
+    OPC2_32_RR_LTODF                             = 0x26, /* >=TC18 */
+    OPC2_32_RR_ULTODF                            = 0x27, /* >=TC18 */
+    OPC2_32_RR_REM64                             = 0x34, /* >=TC18 */
+    OPC2_32_RR_REM64U                            = 0x35, /* >=TC18 */
 };
 /* OPCM_32_RR_IDIRECT                               */
 enum {

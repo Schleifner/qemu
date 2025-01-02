@@ -2242,6 +2242,95 @@ uint64_t helper_divide_u(CPUTriCoreState *env, uint32_t r1, uint32_t r2)
     return ((uint64_t)remainder << 32) | quotient;
 }
 
+uint64_t helper_divide64(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
+{
+    int64_t quotient, remainder;
+    int64_t dividend = (int64_t)r1;
+    int64_t divisor = (int64_t)r2;
+
+    if (divisor == 0) {
+        if (dividend >= 0) {
+            quotient = INT64_MAX;
+            remainder = 0;
+        } else {
+            quotient = INT64_MIN;
+            remainder = 0;
+        }
+        env->PSW_USB_V = (1 << 31);
+    } else if ((divisor == -1) && (dividend == INT64_MIN)) {
+        quotient = INT64_MAX;
+        remainder = 0;
+        env->PSW_USB_V = (1 << 31);
+    } else {
+        quotient = dividend/divisor;
+        env->PSW_USB_V = 0;
+    }
+    env->PSW_USB_SV |= env->PSW_USB_V;
+    env->PSW_USB_AV = 0;
+    return (uint64_t)quotient;
+}
+
+uint64_t helper_divide_u64(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
+{
+    uint64_t quotient;
+    uint64_t dividend = r1;
+    uint64_t divisor = r2;
+
+    if (divisor == 0) {
+        quotient = UINT64_MAX;
+        env->PSW_USB_V = (1 << 31);
+    } else {
+        quotient = dividend / divisor;
+        env->PSW_USB_V = 0;
+    }
+    env->PSW_USB_SV |= env->PSW_USB_V;
+    env->PSW_USB_AV = 0;
+    return quotient;
+}
+
+uint64_t helper_rem64(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
+{
+    int64_t remainder;
+    int64_t dividend = (int64_t)r1;
+    int64_t divisor = (int64_t)r2;
+
+    if (divisor == 0) {
+        if (dividend >= 0) {
+            remainder = 0;
+        } else {
+            remainder = 0;
+        }
+        env->PSW_USB_V = (1 << 31);
+    } else if ((divisor == -1) && (dividend == INT64_MIN)) {
+        remainder = 0;
+        env->PSW_USB_V = (1 << 31);
+    } else {
+        remainder = dividend % divisor;
+        env->PSW_USB_V = 0;
+    }
+    env->PSW_USB_SV |= env->PSW_USB_V;
+    env->PSW_USB_AV = 0;
+    return (uint64_t)remainder;
+}
+
+uint64_t helper_rem_u64(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
+{
+    uint64_t remainder;
+    uint64_t dividend = r1;
+    uint64_t divisor = r2;
+
+    if (divisor == 0) {
+        remainder = 0;
+        env->PSW_USB_V = (1 << 31);
+    } else {
+        remainder = dividend % divisor;
+        env->PSW_USB_V = 0;
+    }
+    env->PSW_USB_SV |= env->PSW_USB_V;
+    env->PSW_USB_AV = 0;
+    return remainder;
+}
+
 uint64_t helper_mul_h(uint32_t arg00, uint32_t arg01,
                       uint32_t arg10, uint32_t arg11, uint32_t n)
 {
@@ -2378,7 +2467,7 @@ in this way data larger than 8 bits in length can be processed
 CRCN D[c], D[d], D[a], D[b] (RRR)
 
 crc_div(c, g, crc_width, data_width)
-‘c’ and ‘g’ each contain the coefficients of polynomials defined over GF(2).
+ï¿½cï¿½ and ï¿½gï¿½ each contain the coefficients of polynomials defined over GF(2).
 In the polynomial f(x), represented by the binary value v, bit v[n] is the
 coefficient of the term xn
 . The value returned by this function is the binary
