@@ -9,39 +9,42 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-FROM docker.io/library/debian:buster-slim
+FROM docker.io/library/ubuntu:24.04
 
 MAINTAINER Philippe Mathieu-Daudé <f4bug@amsat.org>
 
 RUN apt update && \
-    DEBIAN_FRONTEND=noninteractive apt install -yy eatmydata && \
-    DEBIAN_FRONTEND=noninteractive eatmydata apt install -yy \
+    apt-get install -yy \
+       bison \
        bzip2 \
        ca-certificates \
        ccache \
+       curl \
+       flex \
        g++ \
        gcc \
        git \
        libglib2.0-dev \
        libpixman-1-dev \
-       libtest-harness-perl \
        locales \
        make \
        ninja-build \
-       perl-base \
        pkgconf \
        python3-pip \
        python3-setuptools \
-       python3-wheel
+       python3-wheel \
+       rsync \
+       python3-venv && \
+       dpkg-query --showformat '${Package}_${Version}_${Architecture}\n' --show > /packages.txt
 
-RUN git clone --single-branch \
-        https://github.com/bkoppelmann/tricore-binutils.git \
-        /usr/src/binutils && \
-    cd /usr/src/binutils && chmod +x missing && \
-    CFLAGS=-w ./configure --prefix=/usr/local --disable-nls --target=tricore && \
-    make && make install && \
-    rm -rf /usr/src/binutils
+RUN apt-get install python3-tomli
+
+RUN curl -L -o tricore-gcc-toolchain.tar.gz https://github.com/Schleifner/tricore-gcc-toolchain-11.3.0/releases/download/release-11-0/tricore-gcc-toolchain.tar.gz
+RUN tar -xzvf tricore-gcc-toolchain.tar.gz
+RUN rsync -a ./INSTALL/ /usr/local/ && rm tricore-gcc-toolchain.tar.gz
 
 # This image can only build a very minimal QEMU as well as the tests
 ENV DEF_TARGET_LIST tricore-softmmu
 ENV QEMU_CONFIGURE_OPTS --disable-user --disable-tools --disable-fdt
+ENV MAKE /usr/bin/make
+

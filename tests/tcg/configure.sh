@@ -77,8 +77,8 @@ fi
 : ${cross_cc_cflags_x86_64="-m64"}
 
 # tricore is special as it doesn't have a compiler
-: ${cross_as_tricore="tricore-as"}
-: ${cross_ld_tricore="tricore-ld"}
+: ${cross_as_tricore="tricore-elf-as"}
+: ${cross_ld_tricore="tricore-elf-ld"}
 
 for target in $target_list; do
   arch=${target%%-*}
@@ -201,8 +201,8 @@ for target in $target_list; do
     tricore-softmmu)
       container_hosts=x86_64
       container_image=debian-tricore-cross
-      container_cross_as=tricore-as
-      container_cross_ld=tricore-ld
+      container_cross_as=tricore-elf-as
+      container_cross_ld=tricore-elf-ld
       ;;
     x86_64-*)
       container_hosts="aarch64 ppc64el x86_64"

@@ -111,6 +111,15 @@ test_ ## num:                                                      \
     insn EREG_CALC_RESULT, EREG_RS1, DREG_RS2;                    \
     )
 
+#define TEST_E_EE(insn, num, res_hi, res_lo, rs1_hi, rs1_lo, rs2_hi, rs2_lo) \
+    TEST_CASE_E(num, res_lo, res_hi,                              \
+    LI(EREG_RS1_LO, rs1_lo);                                      \
+    LI(EREG_RS1_HI, rs1_hi);                                      \
+    LI(EREG_RS2_LO, rs2_lo);                                      \
+    LI(EREG_RS2_HI, rs2_hi);                                      \
+    insn EREG_CALC_RESULT, EREG_RS1, EREG_RS2;                    \
+    )
+
 /* Pass/Fail handling part */
 #define TEST_PASSFAIL                       \
         j pass;                             \
