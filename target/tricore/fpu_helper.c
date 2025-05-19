@@ -190,7 +190,6 @@ uint64_t helper_dfadd(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 		f_result = QUIET_NAN_64;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}
 
@@ -217,7 +216,6 @@ uint64_t helper_dfsub(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 		f_result = QUIET_NAN_64;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                                          
 	
@@ -246,7 +244,6 @@ uint64_t helper_dfdiv(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 		f_result = QUIET_NAN_64;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                                         
 	
@@ -273,7 +270,6 @@ uint64_t helper_dfmul(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 		f_result = QUIET_NAN_64;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                                        
 	
@@ -300,7 +296,6 @@ uint32_t helper_fmin(CPUTriCoreState *env, uint32_t r1, uint32_t r2)
 		f_result = QUIET_NAN;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                                       
 	
@@ -334,7 +329,6 @@ uint32_t helper_fmax(CPUTriCoreState *env, uint32_t r1, uint32_t r2)
 		f_result = QUIET_NAN;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                                       
 	
@@ -367,7 +361,6 @@ uint64_t helper_dfmin(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 		f_result = QUIET_NAN_64;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                                       
 	
@@ -397,7 +390,6 @@ uint64_t helper_dfmax(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 		f_result = QUIET_NAN_64;
 		env->FPU_FS = 1;
 		env->FPU_FI = 1;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
 		return f_result;
 	}                                     
 	
@@ -610,7 +602,6 @@ uint32_t helper_dfcmp(CPUTriCoreState *env, uint64_t r1, uint64_t r2)
 
 	if ((float64_is_any_nan(arg1) || float64_is_any_nan(arg2))){
 		result = 1 << 3;
-		env->fp_status.float_exception_flags |= float_flag_invalid;
         env->FPU_FS = 1;
 		env->FPU_FI = 1;
 	} else { 
